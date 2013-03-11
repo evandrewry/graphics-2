@@ -4,10 +4,10 @@ MacGLFramework = -framework Carbon -framework OpenGL -framework GLUT
 LinuxGLFramework = -lglut -lGLU
 GLFramework = NOTYETSET
 
-Include = -I/usr/include/GL -I/usr/include
+Include = -I/usr/include/GL -I/usr/include -IEigen
 Link = -L/usr/local/lib -lm
 Flags = -g -o
-Sources = src/*.c src/*.cpp src/lego/*.c src/lego/models/*.c
+Sources =  src/*.cpp src/lego/*.c src/lego/models/*.c src/manipulator/*.cpp
 
 CC = g++
 ExeName = pa1
