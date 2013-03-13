@@ -5,15 +5,28 @@
 #endif
 #include <math.h>
 #include <stdlib.h>
+#include "../../Eigen/Core"
 #include "bone.h"
+using Eigen::Matrix4d;
+using Eigen::MatrixXd;
+using Eigen::VectorXd;
+using Eigen::Vector4d;
 
 class Chain {
     public:
         Chain(int length);
         void draw();
+        void drawChain();
         void addAngle(int depth, float theta);
+        MatrixXd jacobian(VectorXd deltheta);
+        Vector4d getEndVector(int bone);
+        Vector4d getOriginVector(int bone);
+        VectorXd dampedLeastSquares(VectorXd delpoints, float epsilon, int iterations);
+        VectorXd solveDamped(MatrixXd jacobian, VectorXd delpoints);
+        VectorXd getEffectorCoords(VectorXd angles);
     private:
         Bone *root;
-        Bone *end;
-        unsigned int length;
+        vector<Bone *> bones;
+        const static Vector4d ORIGIN_VECTOR;
+        bool goodSolution(VectorXd guess, MatrixXd jacobian, VectorXd delpoints, float epsilon);
 };

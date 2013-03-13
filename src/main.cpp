@@ -11,11 +11,13 @@
 #include "trackball.h"
 #include "lego/lego.h"
 #include "manipulator/chain.h"
+#include "../Eigen/Core"
 
 #define BUFFER_LENGTH 64
 #define GRID_WIDTH 1000
 #define GRID_GRANULARITY 40
 #define CAMERA_MOVEMENT_GRANULARITY 10
+using Eigen::Vector3d;
 
 static Chain *chain;
 
@@ -138,6 +140,7 @@ void display( void )
             glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, yellow); 
 
             chain->draw();
+            chain->dampedLeastSquares(Vector3d(0.,5.,0.), 0.001, 5);
 
             if (grid_on) grid();
     }
