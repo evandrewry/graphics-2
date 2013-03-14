@@ -13,7 +13,7 @@
 #define BONE_FACES 30
 #define BONE_LENGTH 50.0
 #define END_LENGTH (BONE_LENGTH / 5.0) 
-#define EPSILON 0.001
+#define EPSILON 0.00001
 
 using namespace std;
 using Eigen::Matrix4d;
@@ -29,14 +29,14 @@ Chain::Chain(int length) {
     int i;
     Bone *tmp;
 
-    this->root = new Bone(Vector3d(BONE_LENGTH, M_PI / 2, NULL);
+    this->root = new Bone(Vector3d(0.,1.,0.), BONE_LENGTH, 0, NULL);
     tmp = root;
     this->bones.push_back(tmp);
     for (i = 1; i < length; i++) {
-        tmp = new Bone(BONE_LENGTH, M_PI / 2, tmp);
+        tmp = new Bone(Vector3d(0.,1.,0.), BONE_LENGTH, M_PI / 4, tmp);
         this->bones.push_back(tmp);
     }
-    this->bones.push_back(new Bone(END_LENGTH, M_PI / 30.0, tmp));
+    //this->bones.push_back(new Bone(Vector3d(0.,1.,0.), 0, M_PI / 30.0, tmp));
 }
 
 void Chain::drawChain() {
@@ -55,6 +55,11 @@ void Chain::draw() {
     glPopMatrix();
 }
 
+void Chain::addAngles(VectorXd deltheta) {
+    for (int i = 0; i < bones.size(); i++) {
+        bones[i]->addAngle(deltheta(i));
+    }
+}
 
 void Chain::addAngle(int depth, float theta) {
     bones[depth]->addAngle(theta);
@@ -64,29 +69,29 @@ void Chain::addAngle(int depth, float theta) {
 MatrixXd Chain::jacobian(VectorXd deltheta) {
     int i;
     MatrixXd jacobian = MatrixXd::Zero(3,bones.size());
-    Vector4d s_j, p_i;
+    Vector4d s_j, v;
     s_j = this->getEndVector(bones.size() - 1);
     for (i = 0; i < bones.size(); i++) {
-        p_i = this->getOriginVector(i);
-        Vector3d partial = bones[i].getAxis().cross(s_j - p_i).norm() * sin(bones[i]->getTheta() + deltheta(i))
-        jacobian(0, i) = 0;
-        jacobian(1, i) = 0;
-        jacobian(2, i) = ;
+        v = s_j - this->getOriginVector(i);
+        //cout << "v_" << i << ": " << endl << v;
+        Vector3d partial = bones[i]->getAxis().cross(Vector3d(v(0),v(1),v(2)));
+        //cout << "ds/dtheta_" << i << ": " << endl << partial;
+        jacobian.col(i) = bones[bones.size() - 1]->getEffectorDerivativeWRT(bones[i], deltheta);
     }
     return jacobian;
 }
 
 Vector4d Chain::getEndVector(int bone) {
-    return getOriginVector(bone) + bones[bone]->getVector();
+    return bones[bone]->getEffectorWorldCoords();
 }
 
 Vector4d Chain::getOriginVector(int bone) {
-    int i;
-    Matrix4d t = Matrix4d::Identity();
-    for (i = 0; i < bone; i++) {
-        t = t * bones[i]->getTransformationMatrix();
-    }
-    return t * ORIGIN_VECTOR;
+    return bones[bone]->getWorldCoords();
+}
+
+void Chain::moveEffector(VectorXd delpoints) {
+    VectorXd deltheta = dampedLeastSquares(delpoints, 0.001, 5);
+    addAngles(deltheta);
 }
 
 VectorXd Chain::dampedLeastSquares(VectorXd delpoints, float epsilon, int iterations) {
@@ -94,12 +99,15 @@ VectorXd Chain::dampedLeastSquares(VectorXd delpoints, float epsilon, int iterat
     MatrixXd jacobian;
     VectorXd solution;
     int i = 0;
+    bool found = false;
     do {
         jacobian = this->jacobian(guess);
         solution = solveDamped(jacobian, delpoints);
-        cout << solution << endl << endl << jacobian * solution << endl << endl;
-    } while (i++ <= iterations && !goodSolution(solution, jacobian, delpoints, epsilon));
-    return solution;
+        found = goodSolution(solution, jacobian, delpoints, epsilon);
+        //cout << solution << endl << endl << jacobian * solution << endl << endl;
+    } while (i++ <= iterations && !found);
+    if (!found) cout<<"FUCK"<<endl;
+    return found ? solution : VectorXd::Zero(bones.size());
 }
 
 VectorXd Chain::solveDamped(MatrixXd jacobian, VectorXd delpoints) {
@@ -109,8 +117,9 @@ VectorXd Chain::solveDamped(MatrixXd jacobian, VectorXd delpoints) {
 }
 
 bool Chain::goodSolution(VectorXd guess, MatrixXd jacobian, VectorXd delpoints, float epsilon) {
-    float r = (jacobian * guess - delpoints).norm();
-    return r * r < epsilon;
+    double r = (jacobian * guess - delpoints).norm();
+    cout << (r < epsilon) << r <<endl;
+    return r < epsilon;
 }
 
 

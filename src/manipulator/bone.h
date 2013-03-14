@@ -20,6 +20,9 @@ class Bone {
         Bone(Vector3d axis, float length, float theta, Bone *parent);
         Bone(float x, float y, float z, float length, float theta, Bone *parent);
         Matrix4d getTransformationMatrix();
+        Matrix4d getTransformationMatrix(float deltheta);
+        Matrix4d getWorldTransformationMatrix();
+        Matrix4d getWorldTransformationMatrix(VectorXd deltheta);
         void addChild(Bone *child);
         void draw();
         void draw(float radius, int vertices);
@@ -28,13 +31,21 @@ class Bone {
         void addAngle(float theta);
         float getLength();
         float getTheta();
+        Vector3d getAxis() {return axis;};
+        Vector3d getEffectorDerivativeWRT(Bone *joint);
+        Vector3d getEffectorDerivativeWRT(Bone *joint, VectorXd deltheta);
         Vector4d getVector();        
+        Vector4d getWorldCoords();
+        Vector4d getWorldCoords(VectorXd deltheta);
+        Vector4d getEffectorWorldCoords();
+        Vector4d getEffectorWorldCoords(VectorXd deltheta);
     private:
-        float x,
-              y,
-              z,
-              length,   /* length of bone */
-              theta;    /* angle at joint (radians) */
+        const static Vector4d ORIGIN_VECTOR;        
+        double x,
+               y,
+               z,
+               length,   /* length of bone */
+               theta;    /* angle at joint (radians) */
         Vector3d axis;
         Bone *parent;   /* parent bone */
         vector<Bone *> children;    /* child bone */

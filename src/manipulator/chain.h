@@ -18,12 +18,15 @@ class Chain {
         void draw();
         void drawChain();
         void addAngle(int depth, float theta);
+        void addAngles(VectorXd deltheta);
+        VectorXd getAngles();
         MatrixXd jacobian(VectorXd deltheta);
         Vector4d getEndVector(int bone);
         Vector4d getOriginVector(int bone);
         VectorXd dampedLeastSquares(VectorXd delpoints, float epsilon, int iterations);
         VectorXd solveDamped(MatrixXd jacobian, VectorXd delpoints);
         VectorXd getEffectorCoords(VectorXd angles);
+        void moveEffector(VectorXd delpoints);
     private:
         Bone *root;
         vector<Bone *> bones;

@@ -16,6 +16,9 @@ using Eigen::VectorXd;
 using Eigen::Vector4d;
 using Eigen::Vector3d;
 
+const Vector4d Bone::ORIGIN_VECTOR = Vector4d(0,0,0,1);
+
+
 Bone::Bone(Vector3d axis, float length, float theta, Bone *parent) {
     float parentlen;
     if (parent == NULL) {
@@ -49,22 +52,43 @@ void Bone::addAngle(float theta) {
 }
 
 Matrix4d Bone::getTransformationMatrix() {
-    Matrix4d t;
-    float cosine = cos(this->theta);
-    float sine = sin(this->theta);
+    return getTransformationMatrix(0.0f);
+}
 
-    t << cosine, 0,   sine, this->x,
-          -sine, 0, cosine, this->y,
-              0, 0,      1, this->z,
-              0, 0,      0,       1;
+Matrix4d Bone::getTransformationMatrix(float deltheta) {
+    Matrix4d t;
+    float cosine = cos(this->theta + deltheta);
+    float sine = sin(this->theta + deltheta);
+
+    //I*cos(theta) + sin(theta)[u]_x + (1 - cos(theta))u(tensor)u
+    t.row(0) << cosine + (axis(0) * axis(0) * (1 - cosine)), 
+         (axis(0) * axis(1) * (1 - cosine)) - (axis(2) * sine),  
+         (axis(0) * axis(2) * (1 - cosine)) + (axis(1) * sine),
+         this->x;
+    t.row(1) << (axis(1) * axis(0) * (1 - cosine)) + (axis(2) * sine),
+         cosine + (axis(1) * axis(1) * (1 - cosine)),
+         (axis(1) * axis(2) * (1 - cosine)) - (axis(0) * sine),
+         this->y;
+    t.row(2) << (axis(2) * axis(0) * (1 - cosine)) - (axis(1) * sine),
+         (axis(2) * axis(1) * (1 - cosine)) + (axis(0) * sine),
+         cosine + (axis(2) * axis(2) * (1 - cosine)), 
+         this->z;
+    t.row(3) << 0, 0, 0, 1; //row 4
+
+    //cout << "sin: " << sine << "  cosine: " << cosine << endl 
+    //     << "transform: " <<endl << t << endl << endl;
     return t;
 }
 
+
 void Bone::addChild(Bone *child) {
     this->children.push_back(child);
+    child->parent = this;
 }
 
 void Bone::draw() {
+    float radius = 10.f;
+    int vertices = 30;
     glPushMatrix();
         glMultMatrixd(getTransformationMatrix().data()); 
         gluCylinder(gluNewQuadric(), 10., 10., this->length, 30, this->length);
@@ -96,6 +120,56 @@ void Bone::draw(float radius, int vertices) {
         } glEnd();
     } glPopMatrix();
 }
+
+Vector3d Bone::getEffectorDerivativeWRT(Bone *joint) {
+    return joint->getAxis().cross(Vector3d(getEffectorWorldCoords().head(3)) - Vector3d(joint->getWorldCoords().head(3)));
+}
+
+
+Vector3d Bone::getEffectorDerivativeWRT(Bone *joint, VectorXd deltheta) {
+    return joint->getAxis().cross(Vector3d(getEffectorWorldCoords(deltheta).head(3)) - Vector3d(joint->getWorldCoords(deltheta).head(3)));
+}
+
+Vector4d Bone::getWorldCoords() {
+    return getWorldTransformationMatrix() * ORIGIN_VECTOR;
+}
+
+
+Vector4d Bone::getEffectorWorldCoords() {
+    return getWorldTransformationMatrix() * getVector();
+}
+
+Vector4d Bone::getWorldCoords(VectorXd deltheta) {
+    return getWorldTransformationMatrix(deltheta) * ORIGIN_VECTOR;
+}
+
+
+Vector4d Bone::getEffectorWorldCoords(VectorXd deltheta) {
+    return getWorldTransformationMatrix(deltheta) * getVector();
+}
+
+Matrix4d Bone::getWorldTransformationMatrix() {
+    Bone *cur = this;
+    Matrix4d t = Matrix4d::Identity();
+    while (cur != NULL) {
+        t = cur->getTransformationMatrix() * t;
+        cur = cur->parent;
+    }
+    return t;
+}
+
+
+Matrix4d Bone::getWorldTransformationMatrix(VectorXd deltheta) {
+    Bone *cur = this;
+    Matrix4d t = Matrix4d::Identity();
+    while (cur != NULL) {
+        t = cur->getTransformationMatrix(deltheta(deltheta.size() - 1)) * t;        
+        deltheta = VectorXd(deltheta.head(deltheta.size() - 1));
+        cur = cur->parent;
+    }
+    return t;
+}
+
 
 vector<Bone *> Bone::getChildren() {
     return this->children;

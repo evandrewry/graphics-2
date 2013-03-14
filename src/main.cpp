@@ -74,12 +74,12 @@ void initLights(void)
 
 static void init()
 {
-    chain = (new Chain(3));
+    chain = (new Chain(4));
     tbInit(GLUT_RIGHT_BUTTON);
     tbAnimate(GL_TRUE);
 
     // Place Camera
-    camRotX = 120.0f;
+    camRotX = -90.0f;
     camRotY = 0.0f;
     camRotZ = 0.f;
     camPosX = 0.0f;
@@ -140,7 +140,6 @@ void display( void )
             glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, yellow); 
 
             chain->draw();
-            chain->dampedLeastSquares(Vector3d(0.,5.,0.), 0.001, 5);
 
             if (grid_on) grid();
     }
@@ -175,6 +174,30 @@ void keyboard( unsigned char key, int x, int y )
     {
         case 27: // Escape key
             exit(0);
+            break;
+        case '0':
+            chain->moveEffector(Vector3d(0.,0.,2.));
+            glutPostRedisplay();
+            break;
+        case ')':
+            chain->moveEffector(Vector3d(0.,0.,-2.));
+            glutPostRedisplay();
+            break;
+        case '9':
+            chain->moveEffector(Vector3d(0.,2.,0.));
+            glutPostRedisplay();
+            break;
+        case '(':
+            chain->moveEffector(Vector3d(0.,-2.,0.));
+            glutPostRedisplay();
+            break;
+        case '8':
+            chain->moveEffector(Vector3d(2.,0.,0.));
+            glutPostRedisplay();
+            break;
+        case '*':
+            chain->moveEffector(Vector3d(-2.,0.,0.));
+            glutPostRedisplay();
             break;
         case '1':
             chain->addAngle(0, M_PI / 10.0);
