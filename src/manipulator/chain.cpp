@@ -29,11 +29,11 @@ Chain::Chain(int length) {
     int i;
     Bone *tmp;
 
-    this->root = new Bone(Vector3d(0.,1.,0.), BONE_LENGTH, 0, NULL);
+    this->root = new Bone(Vector3d(0.,0.,1.), BONE_LENGTH, 0, NULL);
     tmp = root;
     this->bones.push_back(tmp);
     for (i = 1; i < length; i++) {
-        tmp = new Bone(Vector3d(0.,1.,0.), BONE_LENGTH, M_PI / 4, tmp);
+        tmp = new Bone(Vector3d(i%2,(i+1)%2,0.), BONE_LENGTH, M_PI / 4, tmp);
         this->bones.push_back(tmp);
     }
     //this->bones.push_back(new Bone(Vector3d(0.,1.,0.), 0, M_PI / 30.0, tmp));
@@ -67,18 +67,7 @@ void Chain::addAngle(int depth, float theta) {
 
 
 MatrixXd Chain::jacobian(VectorXd deltheta) {
-    int i;
-    MatrixXd jacobian = MatrixXd::Zero(3,bones.size());
-    Vector4d s_j, v;
-    s_j = this->getEndVector(bones.size() - 1);
-    for (i = 0; i < bones.size(); i++) {
-        v = s_j - this->getOriginVector(i);
-        //cout << "v_" << i << ": " << endl << v;
-        Vector3d partial = bones[i]->getAxis().cross(Vector3d(v(0),v(1),v(2)));
-        //cout << "ds/dtheta_" << i << ": " << endl << partial;
-        jacobian.col(i) = bones[bones.size() - 1]->getEffectorDerivativeWRT(bones[i], deltheta);
-    }
-    return jacobian;
+    return bones[bones.size() - 1]->jacobian(deltheta);
 }
 
 Vector4d Chain::getEndVector(int bone) {
@@ -90,24 +79,23 @@ Vector4d Chain::getOriginVector(int bone) {
 }
 
 void Chain::moveEffector(VectorXd delpoints) {
-    VectorXd deltheta = dampedLeastSquares(delpoints, 0.001, 5);
+    VectorXd deltheta = dampedLeastSquares(delpoints, 0.00001, 20);
     addAngles(deltheta);
 }
 
 VectorXd Chain::dampedLeastSquares(VectorXd delpoints, float epsilon, int iterations) {
     VectorXd guess = VectorXd::Zero(bones.size());
     MatrixXd jacobian;
-    VectorXd solution;
     int i = 0;
     bool found = false;
     do {
         jacobian = this->jacobian(guess);
-        solution = solveDamped(jacobian, delpoints);
-        found = goodSolution(solution, jacobian, delpoints, epsilon);
-        //cout << solution << endl << endl << jacobian * solution << endl << endl;
+        guess = solveDamped(jacobian, delpoints);
+        found = goodSolution(guess, jacobian, delpoints, epsilon);
+        cout << "guess" << endl << guess << endl << endl;
     } while (i++ <= iterations && !found);
     if (!found) cout<<"FUCK"<<endl;
-    return found ? solution : VectorXd::Zero(bones.size());
+    return found ? guess : VectorXd::Zero(bones.size());
 }
 
 VectorXd Chain::solveDamped(MatrixXd jacobian, VectorXd delpoints) {

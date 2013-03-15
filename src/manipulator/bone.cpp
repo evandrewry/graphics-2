@@ -91,7 +91,7 @@ void Bone::draw() {
     int vertices = 30;
     glPushMatrix();
         glMultMatrixd(getTransformationMatrix().data()); 
-        gluCylinder(gluNewQuadric(), 10., 10., this->length, 30, this->length);
+        gluCylinder(gluNewQuadric(), 10., 0., this->length, 3, this->length);
         for (int i = 0; i < children.size(); i++) {
             children[i]->draw();
         }
@@ -119,6 +119,27 @@ void Bone::draw(float radius, int vertices) {
             glVertex3f(this->length, y, z);
         } glEnd();
     } glPopMatrix();
+}
+
+MatrixXd Bone::jacobian(VectorXd deltheta) {
+    Vector4d effector;//, v;
+    int depth = getDepth();
+    MatrixXd jacobian = MatrixXd::Zero(3, depth + 1);
+    //Bone *cur = this;
+    effector = this->getEffectorWorldCoords();
+    for (Bone *cur = this; cur != NULL; cur = cur->parent, depth--) {
+        //v = effector - cur->getWorldCoords();
+        //cout << "v_" << i << ": " << endl << v;
+        //Vector3d partial = bones[i]->getAxis().cross(Vector3d(v(0),v(1),v(2)));
+        //cout << "ds/dtheta_" << i << ": " << endl << partial;
+        jacobian.col(depth) = this->getEffectorDerivativeWRT(cur, deltheta);
+    }
+    return jacobian;
+
+}
+
+int Bone::getDepth() {
+    return parent == NULL ? 0 : 1 + parent->getDepth();
 }
 
 Vector3d Bone::getEffectorDerivativeWRT(Bone *joint) {
@@ -163,7 +184,7 @@ Matrix4d Bone::getWorldTransformationMatrix(VectorXd deltheta) {
     Bone *cur = this;
     Matrix4d t = Matrix4d::Identity();
     while (cur != NULL) {
-        t = cur->getTransformationMatrix(deltheta(deltheta.size() - 1)) * t;        
+        t = cur->getTransformationMatrix(deltheta(deltheta.size() - 1)) * t;
         deltheta = VectorXd(deltheta.head(deltheta.size() - 1));
         cur = cur->parent;
     }

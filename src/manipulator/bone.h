@@ -31,6 +31,8 @@ class Bone {
         void addAngle(float theta);
         float getLength();
         float getTheta();
+        int getDepth();
+        MatrixXd jacobian(VectorXd deltheta);
         Vector3d getAxis() {return axis;};
         Vector3d getEffectorDerivativeWRT(Bone *joint);
         Vector3d getEffectorDerivativeWRT(Bone *joint, VectorXd deltheta);

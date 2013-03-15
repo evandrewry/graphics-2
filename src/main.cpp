@@ -74,7 +74,7 @@ void initLights(void)
 
 static void init()
 {
-    chain = (new Chain(4));
+    chain = (new Chain(5));
     tbInit(GLUT_RIGHT_BUTTON);
     tbAnimate(GL_TRUE);
 
@@ -166,7 +166,7 @@ void reshape( int w, int h )
     glLoadIdentity();
 
 }
-
+#define D 6.
 
 void keyboard( unsigned char key, int x, int y )
 {
@@ -176,27 +176,27 @@ void keyboard( unsigned char key, int x, int y )
             exit(0);
             break;
         case '0':
-            chain->moveEffector(Vector3d(0.,0.,2.));
+            chain->moveEffector(Vector3d(0.,0.,D));
             glutPostRedisplay();
             break;
         case ')':
-            chain->moveEffector(Vector3d(0.,0.,-2.));
+            chain->moveEffector(Vector3d(0.,0.,-D));
             glutPostRedisplay();
             break;
         case '9':
-            chain->moveEffector(Vector3d(0.,2.,0.));
+            chain->moveEffector(Vector3d(0.,D,0.));
             glutPostRedisplay();
             break;
         case '(':
-            chain->moveEffector(Vector3d(0.,-2.,0.));
+            chain->moveEffector(Vector3d(0.,-D,0.));
             glutPostRedisplay();
             break;
         case '8':
-            chain->moveEffector(Vector3d(2.,0.,0.));
+            chain->moveEffector(Vector3d(D,0.,0.));
             glutPostRedisplay();
             break;
         case '*':
-            chain->moveEffector(Vector3d(-2.,0.,0.));
+            chain->moveEffector(Vector3d(-D,0.,0.));
             glutPostRedisplay();
             break;
         case '1':
