@@ -9,6 +9,9 @@
 #include "../../Eigen/Core"
 #include "bone.h"
 
+#define EPSILON 0.00001
+#define ITERATIONS 20
+
 using namespace std;
 using Eigen::Matrix4d;
 using Eigen::MatrixXd;
@@ -19,13 +22,14 @@ using Eigen::Vector3d;
 const Vector4d Bone::ORIGIN_VECTOR = Vector4d(0,0,0,1);
 
 
-Bone::Bone(Vector3d axis, float length, float theta, Bone *parent) {
+Bone::Bone(Vector3d axis, double length, double theta, int name, Bone *parent) {
     float parentlen;
     if (parent == NULL) {
         this->z = 0;
     } else {
         this->z = parent->length;
     }
+    this->name = name;
     this->y = 0;
     this->x = 0;
     this->axis = axis / axis.norm();
@@ -36,7 +40,7 @@ Bone::Bone(Vector3d axis, float length, float theta, Bone *parent) {
     this->theta = theta;
 }
 
-Bone::Bone(float x, float y, float z, float length, float theta, Bone *parent) {
+Bone::Bone(double x, double y, double z, double length, double theta, int name, Bone *parent) {
     this->x = x;
     this->y = y;
     this->z = z;
@@ -47,7 +51,7 @@ Bone::Bone(float x, float y, float z, float length, float theta, Bone *parent) {
     this->theta = theta;
 }
 
-void Bone::addAngle(float theta) {
+void Bone::addAngle(double theta) {
     this->theta += theta;
 }
 
@@ -55,14 +59,14 @@ Matrix4d Bone::getTransformationMatrix() {
     return getTransformationMatrix(0.0f);
 }
 
-Matrix4d Bone::getTransformationMatrix(float deltheta) {
+Matrix4d Bone::getTransformationMatrix(double deltheta) {
     Matrix4d t;
-    float cosine = cos(this->theta + deltheta);
-    float sine = sin(this->theta + deltheta);
+    double cosine = cos(this->theta + deltheta);
+    double sine = sin(this->theta + deltheta);
 
     //I*cos(theta) + sin(theta)[u]_x + (1 - cos(theta))u(tensor)u
     t.row(0) << cosine + (axis(0) * axis(0) * (1 - cosine)), 
-         (axis(0) * axis(1) * (1 - cosine)) - (axis(2) * sine),  
+         (axis(0) * axis(1) * (1 - cosine)) - (axis(2) * sine),
          (axis(0) * axis(2) * (1 - cosine)) + (axis(1) * sine),
          this->x;
     t.row(1) << (axis(1) * axis(0) * (1 - cosine)) + (axis(2) * sine),
@@ -89,8 +93,10 @@ void Bone::addChild(Bone *child) {
 void Bone::draw() {
     float radius = 10.f;
     int vertices = 30;
+    
     glPushMatrix();
         glMultMatrixd(getTransformationMatrix().data()); 
+        glLoadName(this->name);        
         gluCylinder(gluNewQuadric(), 10., 0., this->length, 3, this->length);
         for (int i = 0; i < children.size(); i++) {
             children[i]->draw();
@@ -119,6 +125,28 @@ void Bone::draw(float radius, int vertices) {
             glVertex3f(this->length, y, z);
         } glEnd();
     } glPopMatrix();
+}
+
+VectorXd Bone::dampedLeastSquares(VectorXd delpoints, float epsilon, int iterations) {
+    int depth = getDepth();    
+    VectorXd guess = VectorXd::Zero(depth + 1);
+    MatrixXd jacobian;
+    int i = 0;
+    bool found = false;
+    do {
+        jacobian = this->jacobian(guess);
+        guess = solveDamped(jacobian, delpoints);
+        found = goodSolution(guess, jacobian, delpoints, epsilon);
+        //cout << "guess" << endl << guess << endl << endl;
+    } while (i++ <= iterations && !found);
+    if (!found) cout<<"FUCK"<<endl;
+    return found ? guess : VectorXd::Zero(depth + 1);
+}
+
+VectorXd Bone::solveDamped(MatrixXd jacobian, VectorXd delpoints) {
+    MatrixXd jtj = jacobian.transpose() * jacobian;
+    MatrixXd damper = EPSILON * MatrixXd::Identity(jtj.rows(), jtj.cols());
+    return (jtj + damper).inverse() * jacobian.transpose() * delpoints;
 }
 
 MatrixXd Bone::jacobian(VectorXd deltheta) {
@@ -180,6 +208,7 @@ Matrix4d Bone::getWorldTransformationMatrix() {
 }
 
 
+
 Matrix4d Bone::getWorldTransformationMatrix(VectorXd deltheta) {
     Bone *cur = this;
     Matrix4d t = Matrix4d::Identity();
@@ -191,6 +220,17 @@ Matrix4d Bone::getWorldTransformationMatrix(VectorXd deltheta) {
     return t;
 }
 
+void Bone::moveEffector(VectorXd delpoints) {
+    VectorXd deltheta = this->dampedLeastSquares(delpoints, EPSILON, ITERATIONS);
+    cout << getDepth() << " vs " << deltheta.size();
+    this->addAngles(deltheta);
+}
+
+void Bone::addAngles(VectorXd deltheta) {
+    this->addAngle(deltheta(deltheta.size() - 1));
+    if (this->parent != NULL)
+        this->parent->addAngles(deltheta.head(deltheta.size() - 1));
+}
 
 vector<Bone *> Bone::getChildren() {
     return this->children;
@@ -200,14 +240,20 @@ Bone *Bone::getChild(int i) {
     return i < children.size() ? children[i] : NULL;
 }
 
-float Bone::getLength() {
+double Bone::getLength() {
     return this->length;
 }
 
-float Bone::getTheta() {
+double Bone::getTheta() {
     return this->theta;
 }
 
 Vector4d Bone::getVector() {
     return Vector4d(x, y, z, 1);
+}
+
+bool Bone::goodSolution(VectorXd guess, MatrixXd jacobian, VectorXd delpoints, float epsilon) {
+    double r = (jacobian * guess - delpoints).norm();
+    //cout << (r < epsilon) << r <<endl;
+    return r < epsilon;
 }

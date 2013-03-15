@@ -31,6 +31,8 @@ static bool pile_on = true;
 static bool tessellation_on = true;
 static bool horse_on = true;
 static bool lego_mode = false;
+static bool drag = false;
+int dragx, dragy, selected;
 
 
 static char titleString[150];
@@ -74,7 +76,7 @@ void initLights(void)
 
 static void init()
 {
-    chain = (new Chain(5));
+    chain = (new Chain(3));
     tbInit(GLUT_RIGHT_BUTTON);
     tbAnimate(GL_TRUE);
 
@@ -142,6 +144,11 @@ void display( void )
             chain->draw();
 
             if (grid_on) grid();
+            
+        // Retrieve current matrice before they popped.
+        glGetDoublev( GL_MODELVIEW_MATRIX, modelview );        // Retrieve The Modelview Matrix
+        glGetDoublev( GL_PROJECTION_MATRIX, projection );    // Retrieve The Projection Matrix
+        glGetIntegerv( GL_VIEWPORT, viewport );                // Retrieves The Viewport Values (X, Y, Width, Height)
     }
     glPopMatrix();
 
@@ -275,22 +282,139 @@ void keyboard( unsigned char key, int x, int y )
     glutPostRedisplay();
 }
 
-void mouse( int button, int state, int x, int y)
+
+void processHits (GLint hits, GLuint buffer[])
+{
+    unsigned int i, j;
+    GLuint names, *ptr;
+
+    if (hits > 0) drag = true;
+
+    printf ("hits = %d\n", hits);
+    ptr = (GLuint *) buffer;
+    for (i = 0; i < hits; i++) { /*  for each hit  */
+        names = *ptr;
+        printf (" number of names for hit = %d\n", names); ptr++;
+        printf("  z1 is %g;", (float) *ptr/0x7fffffff); ptr++;
+        printf(" z2 is %g\n", (float) *ptr/0x7fffffff); ptr++;
+        printf ("   the name is ");
+        for (j = 0; j < names; j++) {     /*  for each name */
+            printf ("%d ", *ptr); 
+            selected = *ptr;            
+            ptr++;
+        }
+        printf ("\n");
+    }
+}
+
+void processSelection(int xPos, int yPos)
+{
+    dragx = xPos;
+    dragy = yPos;
+
+    GLfloat fAspect;
+
+    // Space for selection buffer
+    static GLuint selectBuff[BUFFER_LENGTH];
+
+    // Hit counter and viewport storage
+    GLint hits, viewport[4];
+
+    // Setup selection buffer
+    glSelectBuffer(BUFFER_LENGTH, selectBuff);
+
+    // Get the viewport
+    glGetIntegerv(GL_VIEWPORT, viewport);
+    
+    // Switch to projection and save the matrix
+    glMatrixMode(GL_PROJECTION);
+    
+    glPushMatrix();
+    {
+        // Change render mode
+        glRenderMode(GL_SELECT);
+        
+        // Establish new clipping volume to be unit cube around
+        // mouse cursor point (xPos, yPos) and extending two pixels
+        // in the vertical and horizontal direction
+        glLoadIdentity();
+        gluPickMatrix(xPos, viewport[3] - yPos + viewport[1], 2.,2., viewport);
+        
+        // Apply perspective matrix 
+        fAspect = (float)viewport[2] / (float)viewport[3];
+        gluPerspective(60.0f, fAspect, 1.0, 1000.0);
+        
+        // Render only those needed for selection
+        glPushMatrix();    
+        {
+            setCamera();
+            chain->draw();
+        }
+        glPopMatrix();
+        
+        // Collect the hits
+        hits = glRenderMode(GL_RENDER);
+        processHits(hits, selectBuff);
+        // Restore the projection matrix
+        glMatrixMode(GL_PROJECTION);
+    }
+    glPopMatrix();
+    
+    // Go back to modelview for normal rendering
+    glMatrixMode(GL_MODELVIEW);
+    
+    glutPostRedisplay();
+}
+
+void processDrag(int x, int y) {
+
+}
+
+void mouse(int button, int state, int x, int y)
 {
     tbMouse(button, state, x, y);
+    if(button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
+        processSelection(x, y);
+        
+    }
+
+    if(button == GLUT_LEFT_BUTTON && state == GLUT_UP) {
+        drag = false;
+        glutPostRedisplay();
+    }
+
 }
+
 
 void motion(int x, int y)
 {
     tbMotion(x, y);
+    
+    if (drag) {
+        GLfloat winX, winY, winZ;
+        GLdouble posX, posY, posZ, x0, y0, z0;
 
-    GLfloat winX, winY, winZ;
-    GLdouble posX, posY, posZ;
+        winX = (float)x;
+        winY = (float)viewport[3] - (float)y;
+        glReadPixels( x, (int)winY, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &winZ );
+        cout << "WINZ: " << winZ << endl << endl;
+        gluUnProject( winX, winY, winZ, modelview, projection, viewport, &posX, &posY, &posZ);
 
-    winX = (float)x;
-    winY = (float)viewport[3] - (float)y;
-    glReadPixels( x, (int)winY, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &winZ );
-    gluUnProject( winX, winY, winZ, modelview, projection, viewport, &posX, &posY, &posZ);
+        winX = (float)dragx;
+        winY = (float)viewport[3] - (float)dragy;
+        //glReadPixels( dragx, (int)winY, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &winZ );
+        gluUnProject( winX, winY, winZ, modelview, projection, viewport, &x0, &y0, &z0);
+        
+        Vector3d v = Vector3d(posX, posY, posZ) - Vector3d(x0, y0, z0);
+        cout << "down " << dragx << ", " <<dragy << "  , up " << x << ", " << y << endl<<endl;
+        cout << Vector3d(x0, y0, z0) << endl <<endl;
+        cout << Vector3d(posX, posY, posZ) << endl <<endl;
+        cout << v << endl <<endl;
+        chain->moveEffector(selected, v);
+        dragx = x;
+        dragy = y;
+    }
+
     glutPostRedisplay();
 
 }

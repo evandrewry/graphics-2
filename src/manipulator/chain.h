@@ -27,6 +27,7 @@ class Chain {
         VectorXd solveDamped(MatrixXd jacobian, VectorXd delpoints);
         VectorXd getEffectorCoords(VectorXd angles);
         void moveEffector(VectorXd delpoints);
+        void moveEffector(int name, VectorXd delpoints);        
     private:
         Bone *root;
         vector<Bone *> bones;

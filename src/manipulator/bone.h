@@ -17,10 +17,10 @@ using Eigen::Vector3d;
 
 class Bone {
     public:
-        Bone(Vector3d axis, float length, float theta, Bone *parent);
-        Bone(float x, float y, float z, float length, float theta, Bone *parent);
+        Bone(Vector3d axis, double length, double theta, int name, Bone *parent);
+        Bone(double x, double y, double z, double length, double theta, int name, Bone *parent);
         Matrix4d getTransformationMatrix();
-        Matrix4d getTransformationMatrix(float deltheta);
+        Matrix4d getTransformationMatrix(double deltheta);
         Matrix4d getWorldTransformationMatrix();
         Matrix4d getWorldTransformationMatrix(VectorXd deltheta);
         void addChild(Bone *child);
@@ -28,9 +28,11 @@ class Bone {
         void draw(float radius, int vertices);
         Bone *getChild(int i);
         vector<Bone *> getChildren();
-        void addAngle(float theta);
-        float getLength();
-        float getTheta();
+        void addAngle(double theta);
+        void addAngles(VectorXd deltheta);
+        void moveEffector(VectorXd delpoints);
+        double getLength();
+        double getTheta();
         int getDepth();
         MatrixXd jacobian(VectorXd deltheta);
         Vector3d getAxis() {return axis;};
@@ -41,8 +43,12 @@ class Bone {
         Vector4d getWorldCoords(VectorXd deltheta);
         Vector4d getEffectorWorldCoords();
         Vector4d getEffectorWorldCoords(VectorXd deltheta);
+        bool goodSolution(VectorXd guess, MatrixXd jacobian, VectorXd delpoints, float epsilon);
+        VectorXd dampedLeastSquares(VectorXd delpoints, float epsilon, int iterations);
+        VectorXd solveDamped(MatrixXd jacobian, VectorXd delpoints); 
     private:
-        const static Vector4d ORIGIN_VECTOR;        
+        const static Vector4d ORIGIN_VECTOR;
+        int name;
         double x,
                y,
                z,
@@ -51,4 +57,5 @@ class Bone {
         Vector3d axis;
         Bone *parent;   /* parent bone */
         vector<Bone *> children;    /* child bone */
+
 };
