@@ -16,21 +16,12 @@ class Chain {
     public:
         Chain(int length);
         void draw();
-        void drawChain();
-        void addAngle(int depth, float theta);
-        void addAngles(VectorXd deltheta);
-        VectorXd getAngles();
-        MatrixXd jacobian(VectorXd deltheta);
+        void addAngle(int name, float theta);
         Vector4d getEndVector(int bone);
         Vector4d getOriginVector(int bone);
-        VectorXd dampedLeastSquares(VectorXd delpoints, float epsilon, int iterations);
-        VectorXd solveDamped(MatrixXd jacobian, VectorXd delpoints);
-        VectorXd getEffectorCoords(VectorXd angles);
         void moveEffector(VectorXd delpoints);
         void moveEffector(int name, VectorXd delpoints);        
     private:
         Bone *root;
         vector<Bone *> bones;
-        const static Vector4d ORIGIN_VECTOR;
-        bool goodSolution(VectorXd guess, MatrixXd jacobian, VectorXd delpoints, float epsilon);
 };

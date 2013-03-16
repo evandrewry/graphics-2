@@ -31,7 +31,8 @@ static bool pile_on = true;
 static bool tessellation_on = true;
 static bool horse_on = true;
 static bool lego_mode = false;
-static bool drag = false;
+static bool drag = false,
+            inverse = false;
 int dragx, dragy, selected;
 
 
@@ -391,28 +392,33 @@ void motion(int x, int y)
     tbMotion(x, y);
     
     if (drag) {
-        GLfloat winX, winY, winZ;
-        GLdouble posX, posY, posZ, x0, y0, z0;
+        if (inverse) {
+            GLfloat winX, winY, winZ;
+            GLdouble posX, posY, posZ, x0, y0, z0;
 
-        winX = (float)x;
-        winY = (float)viewport[3] - (float)y;
-        glReadPixels( x, (int)winY, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &winZ );
-        cout << "WINZ: " << winZ << endl << endl;
-        gluUnProject( winX, winY, winZ, modelview, projection, viewport, &posX, &posY, &posZ);
+            winX = (float)x;
+            winY = (float)viewport[3] - (float)y;
+            glReadPixels( x, (int)winY, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &winZ );
+            cout << "WINZ: " << winZ << endl << endl;
+            gluUnProject( winX, winY, winZ, modelview, projection, viewport, &posX, &posY, &posZ);
 
-        winX = (float)dragx;
-        winY = (float)viewport[3] - (float)dragy;
-        //glReadPixels( dragx, (int)winY, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &winZ );
-        gluUnProject( winX, winY, winZ, modelview, projection, viewport, &x0, &y0, &z0);
-        
-        Vector3d v = Vector3d(posX, posY, posZ) - Vector3d(x0, y0, z0);
-        cout << "down " << dragx << ", " <<dragy << "  , up " << x << ", " << y << endl<<endl;
-        cout << Vector3d(x0, y0, z0) << endl <<endl;
-        cout << Vector3d(posX, posY, posZ) << endl <<endl;
-        cout << v << endl <<endl;
-        chain->moveEffector(selected, v);
-        dragx = x;
-        dragy = y;
+            winX = (float)dragx;
+            winY = (float)viewport[3] - (float)dragy;
+            //glReadPixels( dragx, (int)winY, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &winZ );
+            gluUnProject( winX, winY, winZ, modelview, projection, viewport, &x0, &y0, &z0);
+
+            Vector3d v = Vector3d(posX, posY, posZ) - Vector3d(x0, y0, z0);
+            cout << "down " << dragx << ", " <<dragy << "  , up " << x << ", " << y << endl<<endl;
+            cout << Vector3d(x0, y0, z0) << endl <<endl;
+            cout << Vector3d(posX, posY, posZ) << endl <<endl;
+            cout << v << endl <<endl;
+            chain->moveEffector(selected, v);
+        } else {
+            chain->addAngle(selected, y - dragy);
+            dragx = x;
+            dragy = y;
+
+        }
     }
 
     glutPostRedisplay();
