@@ -9,8 +9,8 @@
 #include "../../Eigen/Core"
 #include "bone.h"
 
-#define EPSILON 0.00001
-#define ITERATIONS 20
+#define EPSILON 0.0001
+#define ITERATIONS 5
 
 using namespace std;
 using Eigen::Matrix4d;
@@ -104,6 +104,13 @@ void Bone::draw() {
     glPopMatrix();
 }
 
+void Bone::drawSelectable() {
+    // Initialize the name stack
+    glInitNames();
+    glPushName(0);
+    draw();
+}
+
 void Bone::draw(float radius, int vertices) {
     glPushMatrix(); {
         glBegin(GL_QUAD_STRIP); {
@@ -143,6 +150,34 @@ VectorXd Bone::dampedLeastSquares(VectorXd delpoints, float epsilon, int iterati
     return found ? guess : VectorXd::Zero(depth + 1);
 }
 
+VectorXd Bone::dampedLeastSquaresWRT(Bone *joint, VectorXd delpoints, float epsilon, int iterations) {
+    int depth = getDepthWRT(joint);    
+    VectorXd guess = VectorXd::Zero(depth + 1);
+    MatrixXd jacobian;
+    int i = 0;
+    bool found = false;
+    do {
+        jacobian = this->jacobianWRT(joint, guess);
+        guess = solveDamped(jacobian, delpoints);
+        found = goodSolution(guess, jacobian, delpoints, epsilon);
+        //cout << "guess" << endl << guess << endl << endl;
+    } while (i++ <= iterations && !found);
+    if (!found) cout<<"FUCK"<<endl;
+    return found ? guess : VectorXd::Zero(depth + 1);
+}
+
+
+void Bone::moveEffectorIncrementally(VectorXd delpoints) {
+    VectorXd deltheta;
+    for (Bone *cur = this; cur != NULL; cur = cur->parent) {
+        deltheta = this->dampedLeastSquaresWRT(cur, delpoints, EPSILON, ITERATIONS);
+        if (deltheta != VectorXd::Zero(getDepthWRT(cur) + 1)) break;
+    }
+    cout << getDepth() << " but only " << deltheta.size();
+    this->addAngles(deltheta);
+}
+
+
 VectorXd Bone::solveDamped(MatrixXd jacobian, VectorXd delpoints) {
     MatrixXd jtj = jacobian.transpose() * jacobian;
     MatrixXd damper = EPSILON * MatrixXd::Identity(jtj.rows(), jtj.cols());
@@ -166,8 +201,34 @@ MatrixXd Bone::jacobian(VectorXd deltheta) {
 
 }
 
+MatrixXd Bone::jacobianWRT(Bone *joint, VectorXd deltheta) {
+    Vector4d effector;//, v;
+    int depth = getDepthWRT(joint);
+    MatrixXd jacobian = MatrixXd::Zero(3, depth + 1);
+    //Bone *cur = this;
+    effector = this->getEffectorWorldCoords();
+    for (Bone *cur = this; depth >= 0; cur = cur->parent, depth--) {
+        //v = effector - cur->getWorldCoords();
+        //cout << "v_" << i << ": " << endl << v;
+        //Vector3d partial = bones[i]->getAxis().cross(Vector3d(v(0),v(1),v(2)));
+        //cout << "ds/dtheta_" << i << ": " << endl << partial;
+        cout << "deltheta length: " << deltheta.size() << endl << "depth: " << depth <<endl << "jacobian size: " << jacobian.rows() << "x" << jacobian.cols() <<endl;
+
+
+        Vector3d d = this->getEffectorDerivativeWRT(cur, deltheta);
+
+        jacobian.col(depth) = d;
+    }
+    return jacobian;
+
+}
+
 int Bone::getDepth() {
     return parent == NULL ? 0 : 1 + parent->getDepth();
+}
+
+int Bone::getDepthWRT(Bone *joint) {
+    return this == joint ? 0 : 1 + parent->getDepthWRT(joint);
 }
 
 Vector3d Bone::getEffectorDerivativeWRT(Bone *joint) {
@@ -176,7 +237,13 @@ Vector3d Bone::getEffectorDerivativeWRT(Bone *joint) {
 
 
 Vector3d Bone::getEffectorDerivativeWRT(Bone *joint, VectorXd deltheta) {
-    return joint->getAxis().cross(Vector3d(getEffectorWorldCoords(deltheta).head(3)) - Vector3d(joint->getWorldCoords(deltheta).head(3)));
+        cout << "x" <<endl;
+    Vector3d e = Vector3d(getEffectorCoordsWRT(joint, deltheta).head(3));
+        cout << "y" <<endl;
+    Vector3d j = Vector3d(joint->getCoordsWRT(joint, deltheta).head(3));
+        cout << "z" <<endl;
+    cout << "effector: " << endl << e << endl << "joint : " << endl << j << endl;
+    return joint->getAxis().cross(e - j);
 }
 
 Vector4d Bone::getWorldCoords() {
@@ -197,6 +264,16 @@ Vector4d Bone::getEffectorWorldCoords(VectorXd deltheta) {
     return getWorldTransformationMatrix(deltheta) * getVector();
 }
 
+
+Vector4d Bone::getCoordsWRT(Bone *joint, VectorXd deltheta) {
+    return getTransformationMatrixWRT(joint, deltheta) * ORIGIN_VECTOR;
+}
+
+
+Vector4d Bone::getEffectorCoordsWRT(Bone *joint, VectorXd deltheta) {
+    return getTransformationMatrixWRT(joint, deltheta) * getVector();
+}
+
 Matrix4d Bone::getWorldTransformationMatrix() {
     Bone *cur = this;
     Matrix4d t = Matrix4d::Identity();
@@ -207,6 +284,16 @@ Matrix4d Bone::getWorldTransformationMatrix() {
     return t;
 }
 
+Matrix4d Bone::getTransformationMatrixWRT(Bone *joint, VectorXd deltheta) {
+    Bone *cur = this;
+    Matrix4d t = Matrix4d::Identity();
+    while (cur != joint) {
+        t = cur->getTransformationMatrix(deltheta(deltheta.size() - 1)) * t;
+        deltheta = VectorXd(deltheta.head(deltheta.size() - 1));
+        cur = cur->parent;
+    }
+    return t;
+}
 
 
 Matrix4d Bone::getWorldTransformationMatrix(VectorXd deltheta) {
@@ -222,13 +309,22 @@ Matrix4d Bone::getWorldTransformationMatrix(VectorXd deltheta) {
 
 void Bone::moveEffector(VectorXd delpoints) {
     VectorXd deltheta = this->dampedLeastSquares(delpoints, EPSILON, ITERATIONS);
-    cout << getDepth() << " vs " << deltheta.size();
+    cout << getDepth() << " poopvs " << deltheta.size();
     this->addAngles(deltheta);
 }
 
+void Bone::moveEffectorWRT(Bone *joint, VectorXd delpoints) {
+    VectorXd deltheta = this->dampedLeastSquaresWRT(joint, delpoints, EPSILON, ITERATIONS);
+    cout << getDepthWRT(joint) << " vs " << deltheta.size();
+    this->addAngles(deltheta);
+    cout<<"angz addedz"<<endl;
+
+}
+
+
 void Bone::addAngles(VectorXd deltheta) {
     this->addAngle(deltheta(deltheta.size() - 1));
-    if (this->parent != NULL)
+    if (this->parent != NULL && deltheta.size() > 1)
         this->parent->addAngles(deltheta.head(deltheta.size() - 1));
 }
 

@@ -57,11 +57,7 @@ Chain::Chain(int length) {
 
 void Chain::draw() {
     glPushMatrix();
-    // Initialize the name stack
-    glInitNames();
-    glPushName(0);
-
-    this->root->draw();
+    this->root->drawSelectable();
     glPopMatrix();
 }
 
@@ -95,5 +91,5 @@ void Chain::moveEffector(VectorXd delpoints) {
 
 
 void Chain::moveEffector(int name, VectorXd delpoints) {
-    bones[name - 1]->moveEffector(delpoints);
+    bones[name - 1]->moveEffectorIncrementally(delpoints);
 }

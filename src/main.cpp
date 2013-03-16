@@ -76,7 +76,7 @@ void initLights(void)
 
 static void init()
 {
-    chain = (new Chain(3));
+    chain = (new Chain(5));
     tbInit(GLUT_RIGHT_BUTTON);
     tbAnimate(GL_TRUE);
 
