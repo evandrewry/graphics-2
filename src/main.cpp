@@ -180,6 +180,9 @@ void keyboard( unsigned char key, int x, int y )
 {
     switch(key)
     {
+        case ' ':
+            inverse = !inverse;
+            break;
         case 27: // Escape key
             exit(0);
             break;
