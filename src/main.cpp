@@ -56,7 +56,7 @@ extern const GLfloat red[4];
 extern const GLfloat blue[4];
 extern const GLfloat black[4];
 
-static GLScreenCapturer screenshot("screenshot-%d.ppm");
+static GLScreenCapturer screenshot("screenshot-%04d.ppm");
 
 void initLights(void)
 {
@@ -77,7 +77,7 @@ void initLights(void)
 
 static void init()
 {
-    chain = (new Chain(5));
+    chain = (new Chain(3));
     tbInit(GLUT_RIGHT_BUTTON);
     tbAnimate(GL_TRUE);
 
@@ -156,6 +156,8 @@ void display( void )
     glFlush();
     // End Drawing calls
     glutSwapBuffers();
+    screenshot.capture();
+
 
 }
 
@@ -430,14 +432,14 @@ void motion(int x, int y)
 
 int main (int argc, char *argv[])
 {
-    int win_width = 512;
-    int win_height = 512;
+    int win_width = 960;
+    int win_height = 540;
 
     glutInit( &argc, argv );
     glutInitDisplayMode( GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH);
     glutInitWindowSize( win_width, win_height );
 
-    glutCreateWindow( "lego shit" );
+    glutCreateWindow( "programming assignment two - forawrd and inverse kinematics" );
     init();
 
     glutDisplayFunc( display );

@@ -17,8 +17,6 @@ class Chain {
         Chain(int length);
         void draw();
         void addAngle(int name, float theta);
-        Vector4d getEndVector(int bone);
-        Vector4d getOriginVector(int bone);
         void moveEffector(VectorXd delpoints);
         void moveEffector(int name, VectorXd delpoints);        
     private:
